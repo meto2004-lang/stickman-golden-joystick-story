@@ -1,8 +1,8 @@
 // محرك تصدير الفيديو: يرسم القصة كاملة على Canvas ويسجّلها إلى ملف فيديو
 // (MP4 إن كان مدعومًا، وإلا WebM) جاهز للرفع على YouTube.
 import { W } from './engine';
-import type { Scene } from './engine';
-import { renderTimeline, sceneAt, videoDuration } from './render';
+import { renderTimeline, sceneAt, timelineDuration } from './render';
+import type { FrameOpts, TimelinePart } from './render';
 import { startMusic, type MusicHandle } from './music';
 
 export type Resolution = 480 | 720 | 1080;
@@ -20,6 +20,7 @@ export interface ExportProgress {
   total: number;
   sceneIndex: number;
   sceneTitle: string;
+  partIndex: number;
   phase: 'preparing' | 'recording' | 'finalizing';
 }
 
@@ -164,12 +165,15 @@ export interface ExportHandle {
 
 export function exportVideo(args: {
   canvas: HTMLCanvasElement;
-  scenes: Scene[];
+  parts: TimelinePart[];
   settings: ExportSettings;
+  /** نصوص بطاقتي البداية والنهاية */
+  labels?: Pick<FrameOpts, 'introSub' | 'outroSub' | 'outroNote'>;
   onProgress?: (p: ExportProgress) => void;
 }): ExportHandle {
-  const { canvas, scenes, settings, onProgress } = args;
-  const total = videoDuration(scenes);
+  const { canvas, parts, settings, onProgress, labels } = args;
+  const total = timelineDuration(parts);
+  const firstScene = parts[0]?.scenes[0];
   const height = settings.height;
   const width = Math.round((height * 16) / 9);
   const scale = width / W;
@@ -238,7 +242,8 @@ export function exportVideo(args: {
       time: 0,
       total,
       sceneIndex: 0,
-      sceneTitle: scenes[0]?.title ?? '',
+      sceneTitle: firstScene?.title ?? '',
+      partIndex: 0,
       phase: 'preparing',
     });
 
@@ -314,7 +319,7 @@ export function exportVideo(args: {
 
     const paint = (time: number) => {
       ctx.setTransform(scale, 0, 0, scale, 0, 0);
-      renderTimeline(ctx, scenes, time, { subtitles: settings.subtitles });
+      renderTimeline(ctx, parts, time, { subtitles: settings.subtitles, ...labels });
     };
 
     paint(0);
@@ -336,12 +341,13 @@ export function exportVideo(args: {
           }
           const elapsed = Math.min(total, (performance.now() - t0) / 1000);
           paint(elapsed);
-          const { index, scene } = sceneAt(scenes, elapsed);
+          const { index, scene, partIndex } = sceneAt(parts, elapsed);
           onProgress?.({
             time: elapsed,
             total,
             sceneIndex: index,
             sceneTitle: scene.title,
+            partIndex,
             phase: 'recording',
           });
           if (elapsed >= total) {
@@ -362,11 +368,13 @@ export function exportVideo(args: {
       throw e;
     }
 
+    const lastPart = parts[parts.length - 1];
     onProgress?.({
       time: total,
       total,
-      sceneIndex: scenes.length - 1,
-      sceneTitle: scenes[scenes.length - 1]?.title ?? '',
+      sceneIndex: lastPart.scenes.length - 1,
+      sceneTitle: lastPart.scenes[lastPart.scenes.length - 1]?.title ?? '',
+      partIndex: parts.length - 1,
       phase: 'finalizing',
     });
 
