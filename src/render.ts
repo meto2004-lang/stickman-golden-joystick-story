@@ -8,26 +8,55 @@ import type { Scene } from './engine';
 export const INTRO = 4;
 /** مدة بطاقة النهاية (ثانية) */
 export const OUTRO = 4;
+/** مدة الفاصل بين الأجزاء (ثانية) */
+export const INTERLUDE = 3.5;
+
+/** جزء واحد داخل الخط الزمني للفيديو */
+export interface TimelinePart {
+  label: string;
+  title?: string;
+  scenes: Scene[];
+}
 
 export const totalRun = (scenes: Scene[]) => scenes.reduce((a, s) => a + s.duration, 0);
-/** المدة الكاملة للفيديو المُصدَّر (مقدمة + المشاهد + نهاية) */
-export const videoDuration = (scenes: Scene[]) => INTRO + totalRun(scenes) + OUTRO;
+export const partsRun = (parts: TimelinePart[]) => parts.reduce((a, p) => a + totalRun(p.scenes), 0);
+
+/** المدة الكاملة للفيديو المُصدَّر (مقدمة + الأجزاء + فواصل + نهاية) */
+export const timelineDuration = (parts: TimelinePart[]) =>
+  INTRO + partsRun(parts) + INTERLUDE * Math.max(0, parts.length - 1) + OUTRO;
 
 export interface FrameOpts {
   /** حرق الترجمة/السرد داخل الصورة (مطلوب لملف الفيديو) */
   subtitles?: boolean;
+  /** سطر تحت العنوان في بطاقة البداية */
+  introSub?: string;
+  /** سطر كبير في بطاقة النهاية */
+  outroSub?: string;
+  /** سطر صغير في بطاقة النهاية */
+  outroNote?: string;
 }
 
 /** إيجاد المشهد والزمن المحلي عند لحظة معيّنة من الفيديو */
-export function sceneAt(scenes: Scene[], time: number) {
+export function sceneAt(parts: TimelinePart[], time: number) {
   let t = time - INTRO;
-  for (let i = 0; i < scenes.length; i++) {
-    const d = scenes[i].duration;
-    if (t < d) return { index: i, t: Math.max(0, t), scene: scenes[i] };
+  for (let pi = 0; pi < parts.length; pi++) {
+    const { scenes } = parts[pi];
+    const d = totalRun(scenes);
+    if (t < d) {
+      let local = Math.max(0, t);
+      let index = 0;
+      while (index < scenes.length - 1 && local >= scenes[index].duration) {
+        local -= scenes[index].duration;
+        index += 1;
+      }
+      return { partIndex: pi, index, t: local, scene: scenes[index] };
+    }
     t -= d;
+    if (pi < parts.length - 1) t -= INTERLUDE;
   }
-  const i = scenes.length - 1;
-  return { index: i, t: scenes[i].duration, scene: scenes[i] };
+  const li = parts.length - 1;
+  const index = parts[li].scenes.length - 1;
+  return { partIndex: li, index, t: parts[li].scenes[index].duration, scene: parts[li].scenes[index] };
 }
 
 /** آخر سطر سرد ظهر قبل اللحظة t */
@@ -137,7 +166,7 @@ export function drawSceneFrame(
 }
 
 /** بطاقة البداية */
-export function drawIntro(ctx: CanvasRenderingContext2D, t: number) {
+export function drawIntro(ctx: CanvasRenderingContext2D, t: number, subtitle = 'قصة ستيكمان متحركة · ٧ مشاهد') {
   ctx.save();
   ctx.beginPath();
   ctx.rect(0, 0, W, H);
@@ -170,7 +199,7 @@ export function drawIntro(ctx: CanvasRenderingContext2D, t: number) {
   }
   if (a2 > 0) {
     ctx.globalAlpha = a2;
-    text(ctx, 'قصة ستيكمان متحركة · ٧ مشاهد', W / 2, H / 2 + 118, 27, '#e9d5ff', '700');
+    text(ctx, subtitle, W / 2, H / 2 + 118, 27, '#e9d5ff', '700');
     ctx.globalAlpha = 1;
   }
   if (a3 > 0) {
@@ -187,8 +216,63 @@ export function drawIntro(ctx: CanvasRenderingContext2D, t: number) {
   ctx.restore();
 }
 
+/** فاصل بين جزأين */
+export function drawIntertitle(ctx: CanvasRenderingContext2D, part: TimelinePart, t: number) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, W, H);
+  ctx.clip();
+
+  sky(ctx, '#05030f', '#2a1246');
+  stars(ctx, t + 10, 0.8, 70);
+  glow(ctx, W / 2, H / 2, 280, '#7c3aed', 0.3 * ease(prog(t, 0, 1)));
+  glow(ctx, W / 2, H / 2, 120, '#f59e0b', 0.22 * ease(prog(t, 0.6, 1.8)));
+
+  // خطوط ضوئية قطرية
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = 0.12;
+  ctx.fillStyle = '#a78bfa';
+  for (let i = 0; i < 10; i++) {
+    const x = (i / 10) * W + ((t * 40) % 120) - 60;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x + 34, 0);
+    ctx.lineTo(x + 10, H);
+    ctx.lineTo(x - 24, H);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+
+  const a = ease(prog(t, 0.2, 1.1));
+  const b = ease(prog(t, 0.8, 1.7));
+  if (a > 0) {
+    ctx.globalAlpha = a;
+    text(ctx, part.label, W / 2, H / 2 - 40, 60, '#fde047', '900');
+    ctx.globalAlpha = 1;
+  }
+  if (b > 0) {
+    ctx.globalAlpha = b;
+    text(ctx, part.title ?? '', W / 2, H / 2 + 26, 30, '#e9d5ff', '700');
+    ctx.globalAlpha = 1;
+  }
+
+  const fade = Math.max(1 - prog(t, 0, 0.45), prog(t, INTERLUDE - 0.6, INTERLUDE));
+  if (fade > 0) {
+    ctx.fillStyle = `rgba(0,0,0,${fade})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+  ctx.restore();
+}
+
 /** بطاقة النهاية */
-export function drawOutro(ctx: CanvasRenderingContext2D, t: number) {
+export function drawOutro(
+  ctx: CanvasRenderingContext2D,
+  t: number,
+  sub = 'الجزء الثاني قريبًا…',
+  note = 'أعجبك الفيديو؟ اشترك في القناة وشغّل التنبيهات 🔔',
+) {
   ctx.save();
   ctx.beginPath();
   ctx.rect(0, 0, W, H);
@@ -200,15 +284,10 @@ export function drawOutro(ctx: CanvasRenderingContext2D, t: number) {
   glow(ctx, W / 2, H / 2 + 10, 150, '#fde047', 0.18 * ease(prog(t, 0.4, 1.4)));
 
   // الشخصيات
-  const chars: [string, string][] = [
-    ['#3b82f6', '🟦'],
-    ['#ef4444', '🟥'],
-    ['#facc15', '🟨'],
-    ['#a78bfa', '⚫'],
-  ];
+  const chars: string[] = ['#3b82f6', '#ef4444', '#facc15', '#a78bfa'];
   const ca = ease(prog(t, 0.3, 1.3));
   ctx.globalAlpha = ca;
-  chars.forEach(([c], i) => {
+  chars.forEach((c, i) => {
     const x = W / 2 + (i - 1.5) * 96;
     const y = H / 2 + 176 + sin(t * 2 + i) * 4;
     ctx.save();
@@ -251,12 +330,12 @@ export function drawOutro(ctx: CanvasRenderingContext2D, t: number) {
   }
   if (a2 > 0) {
     ctx.globalAlpha = a2;
-    text(ctx, 'الجزء الثاني قريبًا…', W / 2, H / 2 + 5, 34, '#ffffff', '700');
+    text(ctx, sub, W / 2, H / 2 + 5, 32, '#ffffff', '700');
     ctx.globalAlpha = 1;
   }
   if (a3 > 0) {
     ctx.globalAlpha = a3;
-    text(ctx, 'أعجبك الفيديو؟ اشترك في القناة وشغّل التنبيهات 🔔', W / 2, H / 2 + 80, 23, '#d8b4fe', '700');
+    text(ctx, note, W / 2, H / 2 + 80, 23, '#d8b4fe', '700');
     ctx.globalAlpha = 1;
   }
 
@@ -268,22 +347,43 @@ export function drawOutro(ctx: CanvasRenderingContext2D, t: number) {
   ctx.restore();
 }
 
-/** رسم أي لحظة من الفيديو الكامل (مقدمة / مشاهد / نهاية) */
+/** رسم أي لحظة من الفيديو الكامل (مقدمة / مشاهد / فواصل / نهاية) */
 export function renderTimeline(
   ctx: CanvasRenderingContext2D,
-  scenes: Scene[],
+  parts: TimelinePart[],
   time: number,
   opts: FrameOpts = {},
 ) {
-  const total = totalRun(scenes);
+  if (parts.length === 0) return;
   if (time < INTRO) {
-    drawIntro(ctx, time);
+    drawIntro(ctx, time, opts.introSub);
     return;
   }
-  if (time >= INTRO + total) {
-    drawOutro(ctx, clamp(time - INTRO - total, 0, OUTRO));
-    return;
+
+  let t = time - INTRO;
+  for (let pi = 0; pi < parts.length; pi++) {
+    const part = parts[pi];
+    const d = totalRun(part.scenes);
+    if (t < d) {
+      let local = Math.max(0, t);
+      let index = 0;
+      while (index < part.scenes.length - 1 && local >= part.scenes[index].duration) {
+        local -= part.scenes[index].duration;
+        index += 1;
+      }
+      const isLast = pi === parts.length - 1 && index === part.scenes.length - 1;
+      drawSceneFrame(ctx, part.scenes[index], local, isLast, opts);
+      return;
+    }
+    t -= d;
+    if (pi < parts.length - 1) {
+      if (t < INTERLUDE) {
+        drawIntertitle(ctx, parts[pi + 1], t);
+        return;
+      }
+      t -= INTERLUDE;
+    }
   }
-  const { index, t, scene } = sceneAt(scenes, time);
-  drawSceneFrame(ctx, scene, t, index === scenes.length - 1, opts);
+
+  drawOutro(ctx, clamp(time - INTRO - partsRun(parts) - INTERLUDE * (parts.length - 1), 0, OUTRO), opts.outroSub, opts.outroNote);
 }
