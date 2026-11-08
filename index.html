@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>عصا التحكم الذهبية – قصة ستيكمان متحركة</title>
     <style>
-      /* تُعرض فقط عند فتح ملف المشروع مباشرة دون تشغيل Vite */
+      /* تُعرض فقط إذا لم يبدأ التطبيق (فتح الملف مباشرة من القرص) */
       #boot-help {
         display: none;
         min-height: 100vh;
@@ -19,8 +19,8 @@
       }
       #boot-help.show { display: block; }
       #boot-help .card {
-        max-width: 620px;
-        margin: 6vh auto 0;
+        max-width: 640px;
+        margin: 5vh auto 0;
         background: rgba(255, 255, 255, 0.06);
         border: 1px solid rgba(251, 191, 36, 0.35);
         border-radius: 22px;
@@ -39,6 +39,18 @@
         color: #fbbf24;
       }
       #boot-help .ok { color: #86efac; font-weight: bold; }
+      #boot-help a.btn {
+        display: inline-block;
+        margin: 14px 0 4px;
+        padding: 13px 26px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #fde047, #f59e0b);
+        color: #000;
+        font-weight: bold;
+        font-size: 16px;
+        text-decoration: none;
+      }
+      #boot-help .warn { color: #fca5a5; font-size: 13px; }
     </style>
   </head>
   <body>
@@ -46,18 +58,23 @@
 
     <div id="boot-help">
       <div class="card">
-        <h1>🎮 هذا ملف المشروع (نسخة التطوير)</h1>
-        <p>
+        <h1 id="boot-title">🎮 هذا ملف المشروع (نسخة التطوير)</h1>
+        <p id="boot-msg">
           فتح هذا الملف مباشرة لا يعمل، لأنه يحتاج إلى مُشغّل Vite لتحويل ملفات
           <code>.tsx</code> إلى JavaScript.
         </p>
         <p>
-          <span class="ok">الحل الأسهل:</span> افتح الملف
-          <code>story.html</code> الموجود في نفس المجلد بضغطة مزدوجة — نسخة كاملة تعمل
-          بدون إنترنت وبدون تثبيت أي شيء.
+          <span class="ok">الحل:</span> افتح ملف
+          <code>story.html</code> الموجود في نفس مجلد المشروع بضغطة مزدوجة — نسخة كاملة
+          تعمل بضغطة واحدة، بدون إنترنت وبدون تثبيت أي شيء.
+        </p>
+        <a class="btn" id="boot-link" href="story.html">▶ افتح story.html</a>
+        <p class="warn" id="boot-fallback">
+          إن ظهر خطأ «الملف غير موجود» فأنت تستخدم نسخة قديمة من المشروع — حدّثها من
+          GitHub أو شغّل <code>npm run build:local</code> لتوليد الملف.
         </p>
         <p>
-          وللتطوير: افتح الطرفية في مجلد المشروع ثم شغّل
+          <span class="ok">للتطوير:</span> افتح الطرفية في مجلد المشروع ثم شغّل
           <br />
           <code>npm install</code> ثم <code>npm run dev</code>
         </p>
@@ -65,12 +82,35 @@
     </div>
 
     <script>
-      // إذا لم يبدأ React خلال ٢.٥ ثانية (عند الفتح المباشر للملف) نعرض رسالة مساعدة
-      setTimeout(function () {
-        var root = document.getElementById('root');
-        var help = document.getElementById('boot-help');
-        if (root && help && root.childElementCount === 0) help.className = 'show';
-      }, 2500);
+      (function () {
+        var isFile = location.protocol === 'file:';
+
+        function check() {
+          var root = document.getElementById('root');
+          var help = document.getElementById('boot-help');
+          if (!root || !help) return;
+          if (root.childElementCount > 0) {
+            help.className = ''; // التطبيق يعمل — أخفِ الرسالة
+            return;
+          }
+          if (!isFile) return; // على سيرفر: ربما لا يزال يحمّل، لا نتدخل
+
+          // فتحنا الملف من القرص ولم يبدأ التطبيق
+          if (/story\.html$/i.test(location.pathname)) {
+            document.getElementById('boot-title').textContent = '⚠️ متصفحك منع تشغيل السكربت المحلي';
+            document.getElementById('boot-msg').textContent =
+              'هذه النسخة تعمل كاملة داخل المتصفح، لكن المتصفح رفض تشغيل الملف من القرص مباشرة.';
+            document.getElementById('boot-fallback').innerHTML =
+              'جرّب فتح الملف في Chrome أو Edge أو Firefox، أو شغّل المشروع عبر <code>npm run dev</code>.';
+            var link = document.getElementById('boot-link');
+            if (link) link.style.display = 'none';
+          }
+          help.className = 'show';
+        }
+
+        setTimeout(check, 2000);
+        setTimeout(check, 5000);
+      })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
