@@ -193,7 +193,7 @@ export function drawIntro(ctx: CanvasRenderingContext2D, t: number, subtitle = '
     ctx.translate(W / 2, H / 2 + 45);
     ctx.scale(sc, sc);
     ctx.translate(-W / 2, -(H / 2 + 45));
-    text(ctx, 'عصا التحكم الذهبية', W / 2, H / 2 + 45, 64, '#fde047', '900');
+    text(ctx, 'عصا التحكم الذهبية', W / 2, H / 2 + 45, 58, '#fde047', '900');
     ctx.restore();
     ctx.globalAlpha = 1;
   }
