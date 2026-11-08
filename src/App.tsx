@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { H, W, FONT, prog, text } from './engine';
+import { H, W, FONT } from './engine';
 import type { Scene } from './engine';
+import { drawSceneFrame } from './render';
+import VideoExport from './VideoExport';
 import { scenesA } from './scenes1';
 import { scenesB } from './scenes2';
 import { scenesC } from './scenes3';
@@ -23,7 +25,7 @@ function StickIcon({ color, size = 64 }: { color: string; size?: number }) {
   );
 }
 
-function Cover({ onStart }: { onStart: () => void }) {
+function Cover({ onStart, onExport }: { onStart: () => void; onExport: () => void }) {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0b0720] via-[#1a1040] to-[#3b1d5a] text-white flex flex-col items-center px-4 py-10 relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none opacity-60">
@@ -84,6 +86,13 @@ function Cover({ onStart }: { onStart: () => void }) {
           ▶ ابدأ القصة
         </button>
 
+        <button
+          onClick={onExport}
+          className="mt-4 px-7 py-3 rounded-full text-base font-bold bg-white/10 border border-white/25 hover:bg-white/20 transition"
+        >
+          🎬 تحويل القصة إلى ملف فيديو (للرفع على يوتيوب)
+        </button>
+
         <div className="mt-10 flex flex-wrap justify-center gap-2 text-xs text-purple-100/70">
           {SCENES.map((s) => (
             <span key={s.id} className="px-3 py-1 rounded-full bg-white/5 border border-white/10">
@@ -102,8 +111,10 @@ export default function App() {
   const [t, setT] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [ended, setEnded] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const st = useRef({ idx: 0, t: 0, playing: true, ended: false });
+  const exportingRef = useRef(false);
 
   const goScene = useCallback((n: number) => {
     const i = Math.max(0, Math.min(SCENES.length - 1, n));
@@ -118,6 +129,12 @@ export default function App() {
   const setPlay = useCallback((p: boolean) => {
     st.current.playing = p;
     setPlaying(p);
+  }, []);
+
+  const openExport = useCallback(() => {
+    st.current.playing = false;
+    setPlaying(false);
+    setShowExport(true);
   }, []);
 
   const restart = useCallback(() => {
@@ -154,31 +171,15 @@ export default function App() {
           }
         }
       }
-      const cur = SCENES[s.idx];
-      ctx.save();
-      ctx.setTransform(2, 0, 0, 2, 0, 0);
-      ctx.beginPath();
-      ctx.rect(0, 0, W, H);
-      ctx.clip();
-      cur.draw(ctx, s.t);
-      // بطاقة عنوان المشهد
-      const ca = Math.min(prog(s.t, 0.3, 0.8), 1 - prog(s.t, 2.3, 2.9));
-      if (ca > 0) {
-        ctx.fillStyle = `rgba(0,0,0,${0.55 * ca})`;
-        ctx.fillRect(0, H / 2 - 80, W, 150);
-        ctx.globalAlpha = ca;
-        text(ctx, `المشهد ${cur.id}`, W / 2, H / 2 - 35, 26, '#fde047', '700');
-        text(ctx, cur.title, W / 2, H / 2 + 15, 54, '#ffffff', '900');
-        ctx.globalAlpha = 1;
+      // نتوقف عن رسم المشغّل أثناء تصدير الفيديو لتوفير المعالجة
+      if (!exportingRef.current) {
+        const cur = SCENES[s.idx];
+        ctx.save();
+        ctx.setTransform(2, 0, 0, 2, 0, 0);
+        drawSceneFrame(ctx, cur, s.t, s.idx === SCENES.length - 1, { subtitles: false });
+        ctx.restore();
+        setT(s.t);
       }
-      // تلاشي الدخول والخروج
-      const fa = Math.max(1 - prog(s.t, 0, 0.5), prog(s.t, cur.duration - 0.5, cur.duration));
-      if (fa > 0 && !(s.idx === SCENES.length - 1 && s.t > cur.duration - 0.5)) {
-        ctx.fillStyle = `rgba(0,0,0,${fa})`;
-        ctx.fillRect(0, 0, W, H);
-      }
-      ctx.restore();
-      setT(s.t);
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
@@ -186,7 +187,11 @@ export default function App() {
   }, [started]);
 
   useEffect(() => {
-    if (!started) return;
+    exportingRef.current = showExport;
+  }, [showExport]);
+
+  useEffect(() => {
+    if (!started || showExport) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
         e.preventDefault();
@@ -197,9 +202,16 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [started, goScene, restart, setPlay]);
+  }, [started, showExport, goScene, restart, setPlay]);
 
-  if (!started) return <Cover onStart={() => setStarted(true)} />;
+  if (!started) {
+    return (
+      <>
+        <Cover onStart={() => setStarted(true)} onExport={openExport} />
+        {showExport && <VideoExport scenes={SCENES} onClose={() => setShowExport(false)} />}
+      </>
+    );
+  }
 
   const sc = SCENES[idx];
   const line = [...sc.lines].reverse().find((l) => l.at <= t);
@@ -213,7 +225,17 @@ export default function App() {
           ← الرئيسية
         </button>
         <h1 className="font-black text-lg md:text-2xl text-amber-300">🔱 عصا التحكم الذهبية</h1>
-        <div className="text-sm text-purple-200">المشهد {sc.id} / {SCENES.length}</div>
+        <div className="flex items-center gap-2">
+          <div className="hidden sm:block text-sm text-purple-200">المشهد {sc.id} / {SCENES.length}</div>
+          <button
+            onClick={openExport}
+            title="تحويل القصة إلى ملف فيديو للرفع على يوتيوب"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs md:text-sm font-bold text-black shadow-lg hover:scale-105 active:scale-95 transition"
+            style={{ backgroundImage: 'linear-gradient(90deg,#fde047,#f59e0b)' }}
+          >
+            🎬 فيديو
+          </button>
+        </div>
       </header>
 
       <div className="w-full max-w-5xl">
@@ -298,6 +320,8 @@ export default function App() {
           المسافة: تشغيل/إيقاف · الأسهم: التنقل بين المشاهد
         </p>
       </div>
+
+      {showExport && <VideoExport scenes={SCENES} onClose={() => setShowExport(false)} />}
     </div>
   );
 }

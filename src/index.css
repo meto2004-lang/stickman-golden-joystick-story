@@ -1,5 +1,12 @@
-@import "tailwindcss";
+/* خط Cairo مضمّن محليًا حتى تعمل النسخة بدون إنترنت */
+@import "@fontsource/cairo/arabic-400.css";
+@import "@fontsource/cairo/arabic-700.css";
+@import "@fontsource/cairo/arabic-900.css";
+@import "@fontsource/cairo/latin-400.css";
+@import "@fontsource/cairo/latin-700.css";
+@import "@fontsource/cairo/latin-900.css";
 
+@import "tailwindcss";
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
