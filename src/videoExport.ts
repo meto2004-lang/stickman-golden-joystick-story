@@ -242,9 +242,15 @@ export function exportVideo(args: {
       phase: 'preparing',
     });
 
-    // التأكد من تحميل الخط قبل الرسم
+    // التأكد من تحميل خط Cairo (المضمّن محليًا) قبل الرسم حتى يظهر النص صحيحًا في الفيديو
     try {
-      await document.fonts?.ready;
+      const sample = 'عصا التحكم الذهبية ABC 123';
+      await Promise.all(
+        ['400 20px Cairo', '700 24px Cairo', '900 60px Cairo'].map((f) =>
+          document.fonts.load(f, sample).catch(() => []),
+        ),
+      );
+      await document.fonts.ready;
     } catch {
       /* تجاهل */
     }

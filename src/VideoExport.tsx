@@ -392,6 +392,13 @@ export default function VideoExport({ scenes, onClose }: { scenes: Scene[]; onCl
               <div className="rounded-xl bg-emerald-500/10 border border-emerald-400/40 text-emerald-100 text-sm px-3 py-2">
                 ✅ تم إنشاء الفيديو بنجاح · {fmt(result.duration)} · {result.width}×{result.height} · {mb(result.blob.size)}
               </div>
+              {result.ext === 'webm' && (
+                <div className="rounded-xl bg-amber-400/10 border border-amber-400/30 text-amber-100 text-xs px-3 py-2 leading-relaxed">
+                  ℹ️ الملف بصيغة <b>WebM</b> لأن هذا المتصفح لا يدعم تسجيل MP4. يوتيوب يقبلها مباشرة،
+                  وتُشغَّل على VLC ومتصفحات Chrome/Firefox — لكن مشغّل ويندوز الافتراضي قد لا يفتحها.
+                  للحصول على MP4 استخدم <b>Chrome</b> أو <b>Edge</b>.
+                </div>
+              )}
               <div className="flex flex-col sm:flex-row gap-2">
                 <a
                   href={url ?? '#'}

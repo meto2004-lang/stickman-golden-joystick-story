@@ -3,13 +3,75 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet" />
     <title>عصا التحكم الذهبية – قصة ستيكمان متحركة</title>
+    <style>
+      /* تُعرض فقط عند فتح ملف المشروع مباشرة دون تشغيل Vite */
+      #boot-help {
+        display: none;
+        min-height: 100vh;
+        margin: 0;
+        padding: 32px 20px;
+        box-sizing: border-box;
+        background: radial-gradient(circle at 50% 0%, #241141, #0b0720 70%);
+        color: #f5f3ff;
+        font-family: Tahoma, Arial, sans-serif;
+        text-align: center;
+      }
+      #boot-help.show { display: block; }
+      #boot-help .card {
+        max-width: 620px;
+        margin: 6vh auto 0;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(251, 191, 36, 0.35);
+        border-radius: 22px;
+        padding: 26px 22px 30px;
+      }
+      #boot-help h1 { font-size: 22px; color: #fde047; margin: 0 0 14px; }
+      #boot-help p { line-height: 1.9; font-size: 15px; color: #e9d5ff; margin: 10px 0; }
+      #boot-help code {
+        direction: ltr;
+        display: inline-block;
+        background: #000;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 8px;
+        padding: 3px 8px;
+        font-family: Consolas, monospace;
+        color: #fbbf24;
+      }
+      #boot-help .ok { color: #86efac; font-weight: bold; }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+
+    <div id="boot-help">
+      <div class="card">
+        <h1>🎮 هذا ملف المشروع (نسخة التطوير)</h1>
+        <p>
+          فتح هذا الملف مباشرة لا يعمل، لأنه يحتاج إلى مُشغّل Vite لتحويل ملفات
+          <code>.tsx</code> إلى JavaScript.
+        </p>
+        <p>
+          <span class="ok">الحل الأسهل:</span> افتح الملف
+          <code>story.html</code> الموجود في نفس المجلد بضغطة مزدوجة — نسخة كاملة تعمل
+          بدون إنترنت وبدون تثبيت أي شيء.
+        </p>
+        <p>
+          وللتطوير: افتح الطرفية في مجلد المشروع ثم شغّل
+          <br />
+          <code>npm install</code> ثم <code>npm run dev</code>
+        </p>
+      </div>
+    </div>
+
+    <script>
+      // إذا لم يبدأ React خلال ٢.٥ ثانية (عند الفتح المباشر للملف) نعرض رسالة مساعدة
+      setTimeout(function () {
+        var root = document.getElementById('root');
+        var help = document.getElementById('boot-help');
+        if (root && help && root.childElementCount === 0) help.className = 'show';
+      }, 2500);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
